@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ran's Holon Dashboard</title>
+    <style>
+        @-webkit-keyframes flicker { 0% { opacity: 0.96; } 50% { opacity: 1; } 100% { opacity: 0.98; } }
+        @-webkit-keyframes redAlert { 0% { background-color: black; } 50% { background-color: #ff0000; } 100% { background-color: black; } }
+
+        body::after {
+          content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+          background: -webkit-linear-gradient(top, rgba(0,0,0,0) 50%, rgba(0,0,0,0.1) 50%);
+          background-size: 100% 4px; z-index: 999; pointer-events: none;
+        }
+
+        body { 
+            background-color: black; color: #00FF00; font-family: monospace; 
+            text-align: center; padding-top: 3%; overflow: hidden; direction: rtl;
+            -webkit-animation: flicker 0.15s infinite;
+        }
+
+        body.emergency { -webkit-animation: redAlert 0.4s infinite !important; }
+        body.emergency #holon-status { 
+            border-color: #ffffff; color: #ffffff; background-color: #ff0000;
+            font-weight: bold; font-size: 45px;
+        }
+
+        /* עיצוב המבנה החדש שביקשת */
+        .separator {
+            border-top: 2px dashed #004400; 
+            margin: 20px auto; 
+            width: 85%;
+        }
+        
+        .section-title {
+            font-size: 20px; 
+            color: #005500; /* ירוק דהוי */
+            margin-bottom: 10px;
+        }
+
+        /* אזור 1: שעון ותאריך */
+        #clock { font-size: 75px; margin-bottom: 0; }
+        #date { font-size: 25px; color: #008800; margin-top: 5px; }
+
+        /* אזור 2: מזג אוויר */
+        #temp { font-size: 45px; font-weight: bold; margin-bottom: 5px; }
+        #rain-info { font-size: 22px; }
+
+        /* אזור 3: מלחמה */
+        #holon-status { 
+            font-size: 35px; border: 2px solid #00FF00; display: inline-block; 
+            padding: 10px 25px; margin-top: 5px; color: #00FF00;
+        }
+
+        /* אזור 4: יומולדת עומר */
+        #timer { font-size: 32px; font-weight: bold; white-space: nowrap; }
+    </style>
+</head>
+<body>
+    
+    <div id="clock">00:00:00</div>
+    <div id="date">--/--/----</div>
+
+    <div class="separator"></div>
+
+    <div class="section-title">מזג אוויר:</div>
+    <div id="temp">--°C</div>
+    <div id="rain-info">בודק צפי לגשם...</div>
+
+    <div class="separator"></div>
+
+    <div class="section-title">מלחמה:</div>
+    <div id="holon-status">חולון: אין התראות</div>
+
+    <div class="separator"></div>
+
+    <div class="section-title">יומולדת 8 לעומר:</div>
+    <div id="timer">טוען...</div>
+
+    <script>
+        // --- 1. שעון ותאריך ---
+        function updateClock() {
+            var now = new Date();
+            var h = now.getHours(), m = now.getMinutes(), s = now.getSeconds();
+            if (h < 10) h = "0" + h; if (m < 10) m = "0" + m; if (s < 10) s = "0" + s;
+            document.getElementById("clock").innerHTML = h + ":" + m + ":" + s;
+            document.getElementById("date").innerHTML = now.toLocaleDateString("he-IL");
+        }
+
+        // --- 2. מזג אוויר ---
+        function updateWeather() {
+            var url = "https://api.open-meteo.com/v1/forecast?latitude=32.01&longitude=34.78&current_weather=true&daily=precipitation_sum&timezone=Asia%2FJerusalem";
+            fetch(url).then(function(r){return r.json()}).then(function(data){
+                document.getElementById("temp").innerHTML = Math.round(data.current_weather.temperature) + "°C";
+                var rText = "אין צפי לגשם בימים הקרובים";
+                if (data.daily.precipitation_sum[0] > 0) rText = "גשם צפוי הלילה";
+                else if (data.daily.precipitation_sum[1] > 0) rText = "גשם צפוי מחר";
+                document.getElementById("rain-info").innerHTML = rText;
+            });
+        }
+
+        // --- 3. מלחמה (התראות חולון) ---
+        function checkHolonAlert() {
+            var orefUrl = "https://www.oref.org.il/WarningMessages/History/AlertsHistory.json";
+            var proxyUrl = "https://api.allorigins.win/get?url=" + encodeURIComponent(orefUrl) + "&callback=?";
+            var xhr = new XMLHttpRequest();
+            
+            xhr.open("GET", "https://api.allorigins.win/get?url=" + encodeURIComponent(orefUrl) + "&t=" + new Date().getTime(), true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState == 4 && xhr.status == 200) {
+                    try {
+                        var response = JSON.parse(xhr.responseText);
+                        var alerts = JSON.parse(response.contents); 
+                        var isAlertInHolon = false;
+                        
+                        for (var i = 0; i < Math.min(alerts.length, 5); i++) {
+                            if (alerts[i].data.indexOf("חולון") !== -1) {
+                                isAlertInHolon = true;
+                                break;
+                            }
+                        }
+
+                        var statusDiv = document.getElementById("holon-status");
+                        if (isAlertInHolon) {
+                            document.body.className = "emergency";
+                            statusDiv.innerHTML = "התראת ירי טילים";
+                        } else {
+                            document.body.className = "";
+                            statusDiv.innerHTML = "חולון: אין התראות";
+                        }
+                    } catch(e) {
+                        // התעלמות שקטה משגיאות פענוח כדי לא להפריע למסך
+                    }
+                }
+            };
+            xhr.send();
+        }
+
+        // --- 4. ספירה לאחור עומר ---
+        function updateCountdown() {
+            var target = new Date(2026, 3, 1, 0, 0, 0); 
+            var diff = target - new Date();
+            if (diff <= 0) { document.getElementById("timer").innerHTML = "מזל טוב!"; return; }
+            var d = Math.floor(diff / 86400000);
+            var h = Math.floor((diff % 86400000) / 3600000);
+            var m = Math.floor((diff % 3600000) / 60000);
+            var s = Math.floor((diff % 60000) / 1000);
+            
+            document.getElementById("timer").innerHTML = d + " ימים " + h + " שעות " + m + " דקות " + s + " שניות ";
+        }
+
+        // --- הפעלת טיימרים ---
+        setInterval(updateClock, 1000);
+        setInterval(updateCountdown, 1000);
+        setInterval(checkHolonAlert, 7000);
+        setInterval(updateWeather, 900000);
+        
+        updateClock(); updateCountdown(); updateWeather(); checkHolonAlert();
+    </script>
+</body>
+</html>
