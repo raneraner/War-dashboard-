@@ -3,14 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ran's Holon Dashboard</title>
+    <title>Ran's Holon Radar</title>
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
 
     <style>
         @-webkit-keyframes flicker { 0% { opacity: 0.96; } 50% { opacity: 1; } 100% { opacity: 0.98; } }
+        
+        /* הבהוב אדום לירי רקטות */
         @-webkit-keyframes redAlert { 0% { background-color: black; } 50% { background-color: #ff0000; } 100% { background-color: black; } }
+        
+        /* הבהוב כתום להתרעה מקדימה */
         @-webkit-keyframes orangeAlert { 0% { background-color: black; } 50% { background-color: #ff7700; } 100% { background-color: black; } }
 
         body::after {
@@ -21,47 +25,58 @@
 
         body { 
             background-color: black; color: #00FF00; font-family: monospace; 
-            text-align: center; padding-top: 2%; /* מרווח עליון מוקטן */
-            overflow: hidden; direction: rtl;
+            text-align: center; padding-top: 3%; overflow: hidden; direction: rtl;
             -webkit-animation: flicker 0.15s infinite;
         }
 
+        /* מצב חירום - אדום */
         body.emergency { -webkit-animation: redAlert 0.4s infinite !important; }
         body.emergency #holon-status { 
             border-color: #ffffff; color: #ffffff; background-color: #ff0000;
-            font-weight: bold; font-size: 35px; /* מוקטן מ-45 */
+            font-weight: bold; font-size: 55px;
         }
 
+        /* מצב אזהרה מקדימה - כתום */
         body.warning { -webkit-animation: orangeAlert 0.6s infinite !important; }
         body.warning #holon-status { 
             border-color: #ffffff; color: #ffffff; background-color: #ff7700;
-            font-weight: bold; font-size: 35px; /* מוקטן מ-45 */
+            font-weight: bold; font-size: 50px;
         }
 
-        /* מרווח מוקטן בין הקווים */
-        .separator { border-top: 2px dashed #004400; margin: 15px auto; width: 85%; }
+        /* עיצוב המבנה המוגדל */
+        .separator {
+            border-top: 2px dashed #004400; 
+            margin: 25px auto; /* הוגדל מ-20 */
+            width: 90%; /* הוגדל מ-85 */
+        }
         
-        /* גודל כותרות דהויות מוקטן */
-        .section-title { font-size: 16px; color: #005500; margin-bottom: 8px; }
-
-        /* אזור 1: שעון ותאריך מוקטנים */
-        #clock { font-size: 60px; /* מוקטן מ-75 */ margin-bottom: 0; }
-        #date { font-size: 20px; /* מוקטן מ-25 */ color: #008800; margin-top: 3px; }
-
-        /* אזור 2: מזג אוויר מוקטן */
-        #temp { font-size: 35px; /* מוקטן מ-45 */ font-weight: bold; margin-bottom: 3px; }
-        #rain-info { font-size: 18px; /* מוקטן מ-22 */ }
-
-        /* אזור 3: מלחמה מוקטן */
-        #holon-status { 
-            font-size: 30px; /* מוקטן מ-35 */ border: 2px solid #00FF00; 
-            display: inline-block; padding: 8px 20px; /* פדינג מוקטן */
-            margin-top: 3px; color: #00FF00;
+        .section-title {
+            font-size: 26px; /* הגדלה מ-20px */
+            color: #005500; /* ירוק דהוי */
+            margin-bottom: 12px;
         }
-        #debug-info { font-size: 18px; /* מוקטן מ-22 */ color: #007700; margin-top: 10px; }
 
-        /* אזור 4: יומולדת עומר מוקטן */
-        #timer { font-size: 24px; /* מוקטן מ-32 */ font-weight: bold; white-space: nowrap; }
+        /* אזור 1: שעון ותאריך */
+        #clock { font-size: 90px; /* הגדלה מ-75px */ margin-bottom: 0; }
+        #date { font-size: 32px; /* הגדלה מ-25px */ color: #008800; margin-top: 5px; }
+
+        /* אזור 2: מזג אוויר */
+        #temp { font-size: 60px; /* הגדלה מ-45px */ font-weight: bold; margin-bottom: 7px; }
+        #rain-info { font-size: 28px; /* הגדלה מ-22px */ }
+
+        /* אזור 3: מלחמה */
+        #holon-status { 
+            font-size: 48px; /* הגדלה מ-35px */ border: 3px solid #00FF00; display: inline-block; 
+            padding: 12px 30px; /* הוגדל קלות */ margin-top: 5px; color: #00FF00;
+        }
+
+        /* שורת הניטור היקרה: הקטנתי בקצת חזרה מהבקשה הקודמת */
+        #debug-info {
+            font-size: 20px; /* הקטנה קלה מ-22px */ color: #007700; margin-top: 15px;
+        }
+
+        /* אזור 4: יומולדת עומר */
+        #timer { font-size: 42px; /* הגדלה מ-32px */ font-weight: bold; white-space: nowrap; }
     </style>
 </head>
 <body>
@@ -73,7 +88,7 @@
 
     <div class="section-title">מזג אוויר:</div>
     <div id="temp">--°C</div>
-    <div id="rain-info">בודק גשם...</div>
+    <div id="rain-info">בודק צפי לגשם...</div>
 
     <div class="separator"></div>
 
@@ -87,8 +102,9 @@
     <div id="timer">טוען...</div>
 
     <script>
-        var lastKnownHolonAlert = ""; 
+        var lastKnownHolonAlert = ""; // משתנה גלובלי לזיכרון ההתרעה האחרונה בחולון
 
+        // --- 1. שעון ותאריך ---
         function updateClock() {
             var now = new Date();
             var h = now.getHours(), m = now.getMinutes(), s = now.getSeconds();
@@ -97,76 +113,142 @@
             document.getElementById("date").innerHTML = now.toLocaleDateString("he-IL");
         }
 
+        // --- 2. מזג אוויר ---
         function updateWeather() {
             var url = "https://api.open-meteo.com/v1/forecast?latitude=32.01&longitude=34.78&current_weather=true&daily=precipitation_sum&timezone=Asia%2FJerusalem";
+            
             fetch(url).then(function(r){return r.json()}).then(function(data){
                 document.getElementById("temp").innerHTML = Math.round(data.current_weather.temperature) + "°C";
-                var rText = "אין צפי לגשם";
-                if (data.daily.precipitation_sum[0] > 0) rText = "גשם צפוי הלילה";
-                else if (data.daily.precipitation_sum[1] > 0) rText = "גשם צפוי מחר";
+                
+                var currentCode = data.current_weather.weathercode;
+                var rainToday = data.daily.precipitation_sum[0];
+                var rainTomorrow = data.daily.precipitation_sum[1];
+                var rText = "אין צפי לגשם בימים הקרובים";
+                
+                // בדיקת "גשום כרגע!" לפי קוד מזג האוויר
+                if (currentCode === 61 || currentCode === 63 || currentCode === 65 || 
+                    currentCode === 80 || currentCode === 81 || currentCode === 82) {
+                    rText = "גשום כרגע!";
+                } else if (rainToday > 0) {
+                    rText = "גשם צפוי הלילה";
+                } else if (rainTomorrow > 0) {
+                    rText = "גשם צפוי מחר";
+                }
+                
                 document.getElementById("rain-info").innerHTML = rText;
             });
         }
 
+        // --- 3. מלחמה (התרעות חולון - XHR עם מתווך) ---
         function checkHolonAlert() {
             var cacheBuster = new Date().getTime();
             var targetUrl = "https://www.oref.org.il/WarningMessages/History/AlertsHistory.json?v=" + cacheBuster;
             var proxyUrl = "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(targetUrl);
             var xhr = new XMLHttpRequest();
+            
             xhr.open("GET", proxyUrl, true);
             xhr.onreadystatechange = function() {
                 var now = new Date();
                 var debugDiv = document.getElementById("debug-info");
+
                 if (xhr.readyState == 4) {
                     if (xhr.status == 200) {
                         try {
                             var rawText = xhr.responseText.trim();
                             var alerts = [];
-                            if (rawText !== "" && rawText.indexOf("<") !== 0) { alerts = JSON.parse(rawText); }
+                            
+                            // מנגנון הגנה נגד תוכן ריק או שגיאה
+                            if (rawText !== "" && rawText.indexOf("<") !== 0) {
+                                alerts = JSON.parse(rawText); 
+                            }
+                            
+                            // סריקה מלאה לעדכון הזיכרון של ההתרעה האחרונה בחולון
                             for (var j = 0; j < alerts.length; j++) {
                                 if (alerts[j].data.indexOf("חולון") !== -1) {
-                                    lastKnownHolonAlert = alerts[j].alertDate.split(" ")[1];
-                                    break; 
+                                    lastKnownHolonAlert = alerts[j].alertDate.split(" ")[1]; // שומר רק את השעה
+                                    break; // מצאנו את האחרונה, יוצאים
                                 }
                             }
-                            if (lastKnownHolonAlert !== "") { debugDiv.innerHTML = "אחרון בחולון: " + lastKnownHolonAlert + " | עודכן: " + now.toLocaleTimeString("he-IL"); }
-                            else { debugDiv.innerHTML = "שקט בחולון (אין נתוני עבר) | עודכן: " + now.toLocaleTimeString("he-IL"); }
+
+                            // תצוגת שורת הניטור המעודכנת
+                            if (lastKnownHolonAlert !== "") {
+                                debugDiv.innerHTML = "אחרון בחולון: " + lastKnownHolonAlert + " | עודכן: " + now.toLocaleTimeString("he-IL");
+                            } else {
+                                debugDiv.innerHTML = "שקט בחולון (אין נתוני עבר) | עודכן: " + now.toLocaleTimeString("he-IL");
+                            }
+
                             var isAlertInHolon = false;
                             var alertTitle = "";
+                            
+                            // סורקים עד 50 התרעות אחרונות למקרה של מטח גדול
                             for (var i = 0; i < Math.min(alerts.length, 50); i++) {
                                 if (alerts[i].data.indexOf("חולון") !== -1) {
+                                    
+                                    // פירוק ידני של התאריך לתמיכה מלאה בספארי 12
                                     var dtParts = alerts[i].alertDate.split(" ");
                                     var dParts = dtParts[0].split("-");
                                     var tParts = dtParts[1].split(":");
+                                    
                                     var alertTime = new Date(dParts[0], dParts[1] - 1, dParts[2], tParts[0], tParts[1], tParts[2]);
                                     var diffMinutes = (now.getTime() - alertTime.getTime()) / (1000 * 60);
+                                    
+                                    // מפעיל התרעה רק אם עברו פחות מ-10 דקות (זמן ממ"ד קלאסי)
                                     if (diffMinutes <= 10 && diffMinutes >= 0) {
-                                        isAlertInHolon = true; alertTitle = alerts[i].title || ""; break;
+                                        isAlertInHolon = true;
+                                        alertTitle = alerts[i].title || "";
+                                        break; // מצאנו אזעקה טרייה בחולון, יוצאים מהלופ
                                     }
                                 }
                             }
+
                             var statusDiv = document.getElementById("holon-status");
                             if (isAlertInHolon) {
-                                if (alertTitle.indexOf("בדקות הקרובות") !== -1 || alertTitle.indexOf("צפויות") !== -1) { document.body.className = "warning"; statusDiv.innerHTML = "התרעות צפויות בדקות הקרובות"; }
-                                else if (alertTitle.indexOf("רקטות") !== -1 || alertTitle.indexOf("טילים") !== -1) { document.body.className = "emergency"; statusDiv.innerHTML = "ירי רקטות וטילים!"; }
-                                else { document.body.className = "emergency"; statusDiv.innerHTML = alertTitle !== "" ? alertTitle : "התרעה בחולון!"; }
-                            } else { document.body.className = ""; statusDiv.innerHTML = "חולון: אין התרעות"; }
-                        } catch(e) { debugDiv.innerHTML = "שגיאת פענוח נתונים | עודכן: " + now.toLocaleTimeString("he-IL"); }
-                    } else { debugDiv.innerHTML = "שגיאת רשת (" + xhr.status + ") | עודכן: " + now.toLocaleTimeString("he-IL"); }
+                                // זיהוי סוג ההתרעה
+                                if (alertTitle.indexOf("בדקות הקרובות") !== -1 || alertTitle.indexOf("צפויות") !== -1) {
+                                    document.body.className = "warning";
+                                    statusDiv.innerHTML = "התרעות צפויות בדקות הקרובות";
+                                } else if (alertTitle.indexOf("רקטות") !== -1 || alertTitle.indexOf("טילים") !== -1) {
+                                    document.body.className = "emergency";
+                                    statusDiv.innerHTML = "ירי רקטות וטילים!";
+                                } else {
+                                    document.body.className = "emergency";
+                                    statusDiv.innerHTML = alertTitle !== "" ? alertTitle : "התרעה בחולון!";
+                                }
+                            } else {
+                                document.body.className = "";
+                                statusDiv.innerHTML = "חולון: אין התרעות";
+                            }
+                        } catch(e) {
+                            debugDiv.innerHTML = "שגיאת פענוח נתונים | עודכן: " + now.toLocaleTimeString("he-IL");
+                        }
+                    } else {
+                        debugDiv.innerHTML = "שגיאת רשת (" + xhr.status + ") | עודכן: " + now.toLocaleTimeString("he-IL");
+                    }
                 }
             };
             xhr.send();
         }
 
+        // --- 4. ספירה לאחור עומר ---
         function updateCountdown() {
             var target = new Date(2026, 3, 1, 0, 0, 0); 
             var diff = target - new Date();
             if (diff <= 0) { document.getElementById("timer").innerHTML = "מזל טוב!"; return; }
-            var d = Math.floor(diff / 86400000), h = Math.floor((diff % 86400000) / 3600000), m = Math.floor((diff % 3600000) / 60000), s = Math.floor((diff % 60000) / 1000);
+            var d = Math.floor(diff / 86400000);
+            var h = Math.floor((diff % 86400000) / 3600000);
+            var m = Math.floor((diff % 3600000) / 60000);
+            var s = Math.floor((diff % 60000) / 1000);
+            
             document.getElementById("timer").innerHTML = d + " ימים " + h + " שעות " + m + " דקות " + s + " שניות ";
         }
 
-        setInterval(updateClock, 1000); setInterval(updateCountdown, 1000); setInterval(checkHolonAlert, 7000); setInterval(updateWeather, 900000);
+        // --- הפעלת טיימרים ---
+        setInterval(updateClock, 1000);
+        setInterval(updateCountdown, 1000);
+        setInterval(checkHolonAlert, 7000); // 7 שניות
+        setInterval(updateWeather, 900000); // 15 דקות
+        
+        // קריאה ראשונית מיידית
         updateClock(); updateCountdown(); updateWeather(); checkHolonAlert();
     </script>
 </body>
