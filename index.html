@@ -109,8 +109,9 @@
         }
 
         function checkHolonAlert() {
-            var targetUrl = "https://www.oref.org.il/WarningMessages/History/AlertsHistory.json?v=" + new Date().getTime();
-            var proxyUrl = "https://api.allorigins.win/get?disableCache=true&url=" + encodeURIComponent(targetUrl);
+            var cacheBuster = new Date().getTime();
+            var targetUrl = "https://www.oref.org.il/WarningMessages/History/AlertsHistory.json?v=" + cacheBuster;
+            var proxyUrl = "https://api.allorigins.win/get?url=" + encodeURIComponent(targetUrl) + "&t=" + cacheBuster;
             var xhr = new XMLHttpRequest();
             
             xhr.open("GET", proxyUrl, true);
@@ -126,12 +127,18 @@
                         for (var i = 0; i < Math.min(alerts.length, 50); i++) {
                             if (alerts[i].data.indexOf("חולון") !== -1) {
                                 
-                                var safeDateStr = alerts[i].alertDate.replace(/-/g, "/");
-                                var alertTime = new Date(safeDateStr);
-                                var diffMinutes = (now - alertTime) / (1000 * 60);
+                                // פירוק ידני של התאריך לתמיכה מלאה בספארי 12
+                                // הפורמט של פיקוד העורף: "YYYY-MM-DD HH:mm:ss"
+                                var dtParts = alerts[i].alertDate.split(" ");
+                                var dParts = dtParts[0].split("-");
+                                var tParts = dtParts[1].split(":");
                                 
-                                // איפוס לפי 10 דקות מרגע ההתרעה (זמן שהייה בממ"ד)
-                                if (diffMinutes <= 10) {
+                                // new Date(year, monthIndex, day, hours, minutes, seconds)
+                                var alertTime = new Date(dParts[0], dParts[1] - 1, dParts[2], tParts[0], tParts[1], tParts[2]);
+                                
+                                var diffMinutes = (now.getTime() - alertTime.getTime()) / (1000 * 60);
+                                
+                                if (diffMinutes <= 10 && diffMinutes >= 0) {
                                     isAlertInHolon = true;
                                     alertTitle = alerts[i].title || "";
                                     break;
