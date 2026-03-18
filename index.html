@@ -10,11 +10,7 @@
 
     <style>
         @-webkit-keyframes flicker { 0% { opacity: 0.96; } 50% { opacity: 1; } 100% { opacity: 0.98; } }
-        
-        /* הבהוב אדום לירי רקטות */
         @-webkit-keyframes redAlert { 0% { background-color: black; } 50% { background-color: #ff0000; } 100% { background-color: black; } }
-        
-        /* הבהוב כתום להתרעה מקדימה */
         @-webkit-keyframes orangeAlert { 0% { background-color: black; } 50% { background-color: #ff7700; } 100% { background-color: black; } }
 
         body::after {
@@ -29,31 +25,20 @@
             -webkit-animation: flicker 0.15s infinite;
         }
 
-        /* מצב חירום - אדום */
         body.emergency { -webkit-animation: redAlert 0.4s infinite !important; }
         body.emergency #holon-status { 
             border-color: #ffffff; color: #ffffff; background-color: #ff0000;
             font-weight: bold; font-size: 55px;
         }
 
-        /* מצב אזהרה מקדימה - כתום */
         body.warning { -webkit-animation: orangeAlert 0.6s infinite !important; }
         body.warning #holon-status { 
             border-color: #ffffff; color: #ffffff; background-color: #ff7700;
-            font-weight: bold; font-size: 45px; /* קטן יותר כדי שיכנסו כל המילים */
+            font-weight: bold; font-size: 45px; 
         }
 
-        .separator {
-            border-top: 2px dashed #004400; 
-            margin: 25px auto; 
-            width: 90%; 
-        }
-        
-        .section-title {
-            font-size: 28px; 
-            color: #005500; 
-            margin-bottom: 12px;
-        }
+        .separator { border-top: 2px dashed #004400; margin: 25px auto; width: 90%; }
+        .section-title { font-size: 28px; color: #005500; margin-bottom: 12px; }
 
         #clock { font-size: 100px; margin-bottom: 0; }
         #date { font-size: 35px; color: #008800; margin-top: 5px; }
@@ -124,10 +109,11 @@
         }
 
         function checkHolonAlert() {
-            var orefUrl = "https://www.oref.org.il/WarningMessages/History/AlertsHistory.json";
+            var targetUrl = "https://www.oref.org.il/WarningMessages/History/AlertsHistory.json?v=" + new Date().getTime();
+            var proxyUrl = "https://api.allorigins.win/get?disableCache=true&url=" + encodeURIComponent(targetUrl);
             var xhr = new XMLHttpRequest();
             
-            xhr.open("GET", "https://api.allorigins.win/get?url=" + encodeURIComponent(orefUrl) + "&t=" + new Date().getTime(), true);
+            xhr.open("GET", proxyUrl, true);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState == 4 && xhr.status == 200) {
                     try {
@@ -135,19 +121,26 @@
                         var alerts = JSON.parse(response.contents); 
                         var isAlertInHolon = false;
                         var alertTitle = "";
+                        var now = new Date();
                         
-                        // חיפוש חולון ב-5 ההתרעות האחרונות
-                        for (var i = 0; i < Math.min(alerts.length, 5); i++) {
+                        for (var i = 0; i < Math.min(alerts.length, 50); i++) {
                             if (alerts[i].data.indexOf("חולון") !== -1) {
-                                isAlertInHolon = true;
-                                alertTitle = alerts[i].title || "";
-                                break;
+                                
+                                var safeDateStr = alerts[i].alertDate.replace(/-/g, "/");
+                                var alertTime = new Date(safeDateStr);
+                                var diffMinutes = (now - alertTime) / (1000 * 60);
+                                
+                                // איפוס לפי 10 דקות מרגע ההתרעה (זמן שהייה בממ"ד)
+                                if (diffMinutes <= 10) {
+                                    isAlertInHolon = true;
+                                    alertTitle = alerts[i].title || "";
+                                    break;
+                                }
                             }
                         }
 
                         var statusDiv = document.getElementById("holon-status");
                         if (isAlertInHolon) {
-                            // זיהוי סוג ההתרעה לפי הטקסט הרשמי מפיקוד העורף
                             if (alertTitle.indexOf("בדקות הקרובות") !== -1 || alertTitle.indexOf("צפויות") !== -1) {
                                 document.body.className = "warning";
                                 statusDiv.innerHTML = "התרעות צפויות בדקות הקרובות";
@@ -155,7 +148,6 @@
                                 document.body.className = "emergency";
                                 statusDiv.innerHTML = "ירי רקטות וטילים!";
                             } else {
-                                // התרעה כללית אם הטקסט שונה
                                 document.body.className = "emergency";
                                 statusDiv.innerHTML = alertTitle !== "" ? alertTitle : "התרעה בחולון!";
                             }
