@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="he">
 <head>
-    <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ran's Holon Dashboard</title>
+    <title>Ran's Holon Radar</title>
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+
     <style>
         @-webkit-keyframes flicker { 0% { opacity: 0.96; } 50% { opacity: 1; } 100% { opacity: 0.98; } }
         @-webkit-keyframes redAlert { 0% { background-color: black; } 50% { background-color: #ff0000; } 100% { background-color: black; } }
@@ -25,38 +27,38 @@
         body.emergency { -webkit-animation: redAlert 0.4s infinite !important; }
         body.emergency #holon-status { 
             border-color: #ffffff; color: #ffffff; background-color: #ff0000;
-            font-weight: bold; font-size: 45px;
+            font-weight: bold; font-size: 60px; /* הוגדל מ-45 */
         }
 
-        /* עיצוב המבנה החדש שביקשת */
+        /* עיצוב המבנה המוגדל */
         .separator {
             border-top: 2px dashed #004400; 
-            margin: 20px auto; 
-            width: 85%;
+            margin: 25px auto; /* הוגדל מ-20 */
+            width: 90%; /* הוגדל מ-85 */
         }
         
         .section-title {
-            font-size: 20px; 
-            color: #005500; /* ירוק דהוי */
-            margin-bottom: 10px;
+            font-size: 28px; /* הוגדל מ-20 */
+            color: #005500; 
+            margin-bottom: 12px;
         }
 
         /* אזור 1: שעון ותאריך */
-        #clock { font-size: 75px; margin-bottom: 0; }
-        #date { font-size: 25px; color: #008800; margin-top: 5px; }
+        #clock { font-size: 100px; /* הוגדל מ-75 */ margin-bottom: 0; }
+        #date { font-size: 35px; /* הוגדל מ-25 */ color: #008800; margin-top: 5px; }
 
         /* אזור 2: מזג אוויר */
-        #temp { font-size: 45px; font-weight: bold; margin-bottom: 5px; }
-        #rain-info { font-size: 22px; }
+        #temp { font-size: 65px; /* הוגדל מ-45 */ font-weight: bold; margin-bottom: 7px; }
+        #rain-info { font-size: 30px; /* הוגדל מ-22 */ }
 
         /* אזור 3: מלחמה */
         #holon-status { 
-            font-size: 35px; border: 2px solid #00FF00; display: inline-block; 
-            padding: 10px 25px; margin-top: 5px; color: #00FF00;
+            font-size: 50px; /* הוגדל מ-35 */ border: 3px solid #00FF00; display: inline-block; 
+            padding: 15px 35px; margin-top: 5px; color: #00FF00;
         }
 
         /* אזור 4: יומולדת עומר */
-        #timer { font-size: 32px; font-weight: bold; white-space: nowrap; }
+        #timer { font-size: 45px; /* הוגדל מ-32 */ font-weight: bold; white-space: nowrap; }
     </style>
 </head>
 <body>
@@ -68,7 +70,7 @@
 
     <div class="section-title">מזג אוויר:</div>
     <div id="temp">--°C</div>
-    <div id="rain-info">בודק צפי לגשם...</div>
+    <div id="rain-info">בודק גשם...</div>
 
     <div class="separator"></div>
 
@@ -90,22 +92,37 @@
             document.getElementById("date").innerHTML = now.toLocaleDateString("he-IL");
         }
 
-        // --- 2. מזג אוויר ---
+        // --- 2. מזג אוויר (כולל גשם כרגע) ---
         function updateWeather() {
             var url = "https://api.open-meteo.com/v1/forecast?latitude=32.01&longitude=34.78&current_weather=true&daily=precipitation_sum&timezone=Asia%2FJerusalem";
+            
             fetch(url).then(function(r){return r.json()}).then(function(data){
                 document.getElementById("temp").innerHTML = Math.round(data.current_weather.temperature) + "°C";
+                
+                var currentCode = data.current_weather.weathercode;
+                var rainToday = data.daily.precipitation_sum[0];
+                var rainTomorrow = data.daily.precipitation_sum[1];
                 var rText = "אין צפי לגשם בימים הקרובים";
-                if (data.daily.precipitation_sum[0] > 0) rText = "גשם צפוי הלילה";
-                else if (data.daily.precipitation_sum[1] > 0) rText = "גשם צפוי מחר";
+                
+                // בדיקת "גשום כרגע" לפי Weather Codes (WMO)
+                // קודים 61, 63, 65, 80, 81, 82 מצביעים על גשם ברגע זה
+                if (currentCode === 61 || currentCode === 63 || currentCode === 65 || 
+                    currentCode === 80 || currentCode === 81 || currentCode === 82) {
+                    rText = "גשום כרגע!";
+                } else if (rainToday > 0) {
+                    rText = "גשם צפוי הלילה";
+                } else if (rainTomorrow > 0) {
+                    rText = "גשם צפוי מחר";
+                }
+                
                 document.getElementById("rain-info").innerHTML = rText;
             });
         }
 
-        // --- 3. מלחמה (התראות חולון) ---
+        // --- 3. מלחמה (התראות חולון - XHR עבור iOS 12) ---
         function checkHolonAlert() {
             var orefUrl = "https://www.oref.org.il/WarningMessages/History/AlertsHistory.json";
-            var proxyUrl = "https://api.allorigins.win/get?url=" + encodeURIComponent(orefUrl) + "&callback=?";
+            // שימוש במתווך AllOrigins
             var xhr = new XMLHttpRequest();
             
             xhr.open("GET", "https://api.allorigins.win/get?url=" + encodeURIComponent(orefUrl) + "&t=" + new Date().getTime(), true);
@@ -131,9 +148,7 @@
                             document.body.className = "";
                             statusDiv.innerHTML = "חולון: אין התראות";
                         }
-                    } catch(e) {
-                        // התעלמות שקטה משגיאות פענוח כדי לא להפריע למסך
-                    }
+                    } catch(e) {}
                 }
             };
             xhr.send();
@@ -152,11 +167,11 @@
             document.getElementById("timer").innerHTML = d + " ימים " + h + " שעות " + m + " דקות " + s + " שניות ";
         }
 
-        // --- הפעלת טיימרים ---
+        // --- הפעלת טיימרים (ES5) ---
         setInterval(updateClock, 1000);
         setInterval(updateCountdown, 1000);
-        setInterval(checkHolonAlert, 7000);
-        setInterval(updateWeather, 900000);
+        setInterval(checkHolonAlert, 7000); // 7 שניות
+        setInterval(updateWeather, 900000); // 15 דקות
         
         updateClock(); updateCountdown(); updateWeather(); checkHolonAlert();
     </script>
