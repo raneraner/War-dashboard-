@@ -51,6 +51,11 @@
             padding: 15px 35px; margin-top: 5px; color: #00FF00;
         }
 
+        /* שורת הניטור החדשה */
+        #debug-info {
+            font-size: 22px; color: #007700; margin-top: 15px;
+        }
+
         #timer { font-size: 45px; font-weight: bold; white-space: nowrap; }
     </style>
 </head>
@@ -69,6 +74,7 @@
 
     <div class="section-title">מלחמה:</div>
     <div id="holon-status">חולון: אין התרעות</div>
+    <div id="debug-info">רשת: ממתין לנתונים...</div>
 
     <div class="separator"></div>
 
@@ -111,58 +117,72 @@
         function checkHolonAlert() {
             var cacheBuster = new Date().getTime();
             var targetUrl = "https://www.oref.org.il/WarningMessages/History/AlertsHistory.json?v=" + cacheBuster;
-            var proxyUrl = "https://api.allorigins.win/get?url=" + encodeURIComponent(targetUrl) + "&t=" + cacheBuster;
+            // חזרנו למתווך codetabs שלרוב עוקף חסימות טוב יותר מ-AllOrigins
+            var proxyUrl = "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(targetUrl);
             var xhr = new XMLHttpRequest();
             
             xhr.open("GET", proxyUrl, true);
             xhr.onreadystatechange = function() {
-                if (xhr.readyState == 4 && xhr.status == 200) {
-                    try {
-                        var response = JSON.parse(xhr.responseText);
-                        var alerts = JSON.parse(response.contents); 
-                        var isAlertInHolon = false;
-                        var alertTitle = "";
-                        var now = new Date();
-                        
-                        for (var i = 0; i < Math.min(alerts.length, 50); i++) {
-                            if (alerts[i].data.indexOf("חולון") !== -1) {
-                                
-                                // פירוק ידני של התאריך לתמיכה מלאה בספארי 12
-                                // הפורמט של פיקוד העורף: "YYYY-MM-DD HH:mm:ss"
-                                var dtParts = alerts[i].alertDate.split(" ");
-                                var dParts = dtParts[0].split("-");
-                                var tParts = dtParts[1].split(":");
-                                
-                                // new Date(year, monthIndex, day, hours, minutes, seconds)
-                                var alertTime = new Date(dParts[0], dParts[1] - 1, dParts[2], tParts[0], tParts[1], tParts[2]);
-                                
-                                var diffMinutes = (now.getTime() - alertTime.getTime()) / (1000 * 60);
-                                
-                                if (diffMinutes <= 10 && diffMinutes >= 0) {
-                                    isAlertInHolon = true;
-                                    alertTitle = alerts[i].title || "";
-                                    break;
+                var now = new Date();
+                var debugDiv = document.getElementById("debug-info");
+
+                if (xhr.readyState == 4) {
+                    if (xhr.status == 200) {
+                        try {
+                            // codetabs מחזיר את ה-JSON ישירות בלי לעטוף אותו ב-contents
+                            var alerts = JSON.parse(xhr.responseText); 
+                            
+                            // חיווי ויזואלי לבדיקת תקינות הנתונים
+                            if (alerts.length > 0) {
+                                var lastCity = alerts[0].data;
+                                var lastTime = alerts[0].alertDate.split(" ")[1];
+                                debugDiv.innerHTML = "אחרון בארץ: " + lastCity + " (" + lastTime + ") | נבדק: " + now.toLocaleTimeString("he-IL");
+                            } else {
+                                debugDiv.innerHTML = "אין התרעות בארץ ב-24 שעות האחרונות";
+                            }
+
+                            var isAlertInHolon = false;
+                            var alertTitle = "";
+                            
+                            for (var i = 0; i < Math.min(alerts.length, 50); i++) {
+                                if (alerts[i].data.indexOf("חולון") !== -1) {
+                                    var dtParts = alerts[i].alertDate.split(" ");
+                                    var dParts = dtParts[0].split("-");
+                                    var tParts = dtParts[1].split(":");
+                                    
+                                    var alertTime = new Date(dParts[0], dParts[1] - 1, dParts[2], tParts[0], tParts[1], tParts[2]);
+                                    var diffMinutes = (now.getTime() - alertTime.getTime()) / (1000 * 60);
+                                    
+                                    if (diffMinutes <= 10 && diffMinutes >= 0) {
+                                        isAlertInHolon = true;
+                                        alertTitle = alerts[i].title || "";
+                                        break;
+                                    }
                                 }
                             }
-                        }
 
-                        var statusDiv = document.getElementById("holon-status");
-                        if (isAlertInHolon) {
-                            if (alertTitle.indexOf("בדקות הקרובות") !== -1 || alertTitle.indexOf("צפויות") !== -1) {
-                                document.body.className = "warning";
-                                statusDiv.innerHTML = "התרעות צפויות בדקות הקרובות";
-                            } else if (alertTitle.indexOf("רקטות") !== -1 || alertTitle.indexOf("טילים") !== -1) {
-                                document.body.className = "emergency";
-                                statusDiv.innerHTML = "ירי רקטות וטילים!";
+                            var statusDiv = document.getElementById("holon-status");
+                            if (isAlertInHolon) {
+                                if (alertTitle.indexOf("בדקות הקרובות") !== -1 || alertTitle.indexOf("צפויות") !== -1) {
+                                    document.body.className = "warning";
+                                    statusDiv.innerHTML = "התרעות צפויות בדקות הקרובות";
+                                } else if (alertTitle.indexOf("רקטות") !== -1 || alertTitle.indexOf("טילים") !== -1) {
+                                    document.body.className = "emergency";
+                                    statusDiv.innerHTML = "ירי רקטות וטילים!";
+                                } else {
+                                    document.body.className = "emergency";
+                                    statusDiv.innerHTML = alertTitle !== "" ? alertTitle : "התרעה בחולון!";
+                                }
                             } else {
-                                document.body.className = "emergency";
-                                statusDiv.innerHTML = alertTitle !== "" ? alertTitle : "התרעה בחולון!";
+                                document.body.className = "";
+                                statusDiv.innerHTML = "חולון: אין התרעות";
                             }
-                        } else {
-                            document.body.className = "";
-                            statusDiv.innerHTML = "חולון: אין התרעות";
+                        } catch(e) {
+                            debugDiv.innerHTML = "שגיאת פענוח נתונים | נבדק: " + now.toLocaleTimeString("he-IL");
                         }
-                    } catch(e) {}
+                    } else {
+                        debugDiv.innerHTML = "שגיאת רשת (" + xhr.status + ") | נבדק: " + now.toLocaleTimeString("he-IL");
+                    }
                 }
             };
             xhr.send();
