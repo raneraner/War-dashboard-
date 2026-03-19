@@ -196,7 +196,11 @@
                         }
 
                         if (latestEventText !== "") {
-                            debugDiv.innerHTML = "אזעקה אחרונה: " + latestEventText + " (" + latestEventTimeStr + ") | עודכן: " + now.toLocaleTimeString("he-IL");
+                            if (latestEventText === "התרעה") {
+                                debugDiv.innerHTML = "אזעקה אחרונה: " + latestEventTimeStr + " | עודכן: " + now.toLocaleTimeString("he-IL");
+                            } else {
+                                debugDiv.innerHTML = "אזעקה אחרונה: " + latestEventText + " (" + latestEventTimeStr + ") | עודכן: " + now.toLocaleTimeString("he-IL");
+                            }
                         } else {
                             debugDiv.innerHTML = "שקט בחולון (אין נתוני עבר) | עודכן: " + now.toLocaleTimeString("he-IL");
                         }
