@@ -51,7 +51,7 @@
             padding: 12px 30px; margin-top: 5px; color: #00FF00;
         }
 
-        #debug-info { font-size: 20px; color: #007700; margin-top: 15px; }
+        #debug-info { font-size: 20px; color: #007700; margin-top: 15px; transition: color 0.3s; }
         #timer { font-size: 42px; font-weight: bold; white-space: nowrap; }
     </style>
 </head>
@@ -70,7 +70,7 @@
 
     <div class="section-title">מלחמה:</div>
     <div id="holon-status">חולון: אין התרעות</div>
-    <div id="debug-info">רשת: מבצע מעקף נתונים...</div>
+    <div id="debug-info">רשת: מבצע חיבור ראשוני...</div>
 
     <div class="separator"></div>
 
@@ -79,6 +79,7 @@
 
     <script>
         var lastKnownHolonAlert = ""; 
+        var lastSuccessTime = new Date().getTime(); // מעקב אחר העדכון המוצלח האחרון
 
         function updateClock() {
             var now = new Date();
@@ -111,7 +112,6 @@
         }
 
         function checkHolonAlert() {
-            // הדרך המנצחת: מתווך אמין (AllOrigins) שמושך נתונים מהשרת של צבע אדום
             var cacheBuster = new Date().getTime();
             var targetUrl = "https://api.tzevaadom.co.il/alerts-history?v=" + cacheBuster;
             var proxyUrl = "https://api.allorigins.win/get?disableCache=true&url=" + encodeURIComponent(targetUrl);
@@ -122,88 +122,98 @@
                 var now = new Date();
                 var debugDiv = document.getElementById("debug-info");
 
-                if (xhr.readyState == 4) {
-                    if (xhr.status == 200) {
-                        try {
-                            var response = JSON.parse(xhr.responseText);
-                            var rawText = (response.contents || "").trim();
-                            var alerts = [];
-                            
-                            if (rawText !== "" && rawText.indexOf("<") !== 0) {
-                                var parsedData = JSON.parse(rawText);
-                                if (Array.isArray(parsedData)) {
-                                    alerts = parsedData;
-                                } else if (parsedData && Array.isArray(parsedData.alerts)) {
-                                    alerts = parsedData.alerts;
-                                } else if (parsedData && Array.isArray(parsedData.data)) {
-                                    alerts = parsedData.data;
-                                }
+                if (xhr.readyState == 4 && xhr.status == 200) {
+                    try {
+                        var response = JSON.parse(xhr.responseText);
+                        var rawText = (response.contents || "").trim();
+                        var alerts = [];
+                        
+                        if (rawText !== "" && rawText.indexOf("<") !== 0) {
+                            var parsedData = JSON.parse(rawText);
+                            if (Array.isArray(parsedData)) {
+                                alerts = parsedData;
+                            } else if (parsedData && Array.isArray(parsedData.alerts)) {
+                                alerts = parsedData.alerts;
+                            } else if (parsedData && Array.isArray(parsedData.data)) {
+                                alerts = parsedData.data;
                             }
-                            
-                            for (var j = 0; j < alerts.length; j++) {
-                                var cityData = JSON.stringify(alerts[j].data || "");
-                                if (cityData.indexOf("חולון") !== -1) {
-                                    var timeStr = alerts[j].alertDate || alerts[j].time || "";
-                                    timeStr = timeStr.replace("T", " ").replace("Z", "");
-                                    lastKnownHolonAlert = timeStr.split(" ")[1]; 
+                        }
+                        
+                        // קריאה תקינה - איפוס מונה הזמן
+                        lastSuccessTime = now.getTime();
+                        
+                        for (var j = 0; j < alerts.length; j++) {
+                            var cityData = JSON.stringify(alerts[j].data || "");
+                            if (cityData.indexOf("חולון") !== -1) {
+                                var timeStr = alerts[j].alertDate || alerts[j].time || "";
+                                timeStr = timeStr.replace("T", " ").replace("Z", "");
+                                lastKnownHolonAlert = timeStr.split(" ")[1]; 
+                                break; 
+                            }
+                        }
+
+                        if (lastKnownHolonAlert !== "") {
+                            debugDiv.innerHTML = "אחרון בחולון: " + lastKnownHolonAlert + " | עודכן: " + now.toLocaleTimeString("he-IL");
+                        } else {
+                            debugDiv.innerHTML = "שקט בחולון (אין נתוני עבר) | עודכן: " + now.toLocaleTimeString("he-IL");
+                        }
+
+                        var isAlertInHolon = false;
+                        var alertTitle = "";
+                        
+                        for (var i = 0; i < Math.min(alerts.length, 50); i++) {
+                            var cityData2 = JSON.stringify(alerts[i].data || "");
+                            if (cityData2.indexOf("חולון") !== -1) {
+                                var dateStr = alerts[i].alertDate || alerts[i].time || "";
+                                dateStr = dateStr.replace("T", " ").replace("Z", "");
+                                var dtParts = dateStr.split(" ");
+                                var dParts = dtParts[0].split("-");
+                                var tParts = dtParts[1].split(":");
+                                
+                                var alertTime = new Date(dParts[0], dParts[1] - 1, dParts[2], tParts[0], tParts[1], tParts[2]);
+                                var diffMinutes = (now.getTime() - alertTime.getTime()) / (1000 * 60);
+                                
+                                if (diffMinutes <= 10 && diffMinutes >= 0) {
+                                    isAlertInHolon = true;
+                                    alertTitle = alerts[i].title || alerts[i].category || "";
                                     break; 
                                 }
                             }
-
-                            if (lastKnownHolonAlert !== "") {
-                                debugDiv.innerHTML = "אחרון בחולון: " + lastKnownHolonAlert + " | נבדק (עוקף חסימות): " + now.toLocaleTimeString("he-IL");
-                            } else {
-                                debugDiv.innerHTML = "שקט בחולון (אין נתוני עבר) | נבדק (עוקף חסימות): " + now.toLocaleTimeString("he-IL");
-                            }
-
-                            var isAlertInHolon = false;
-                            var alertTitle = "";
-                            
-                            for (var i = 0; i < Math.min(alerts.length, 50); i++) {
-                                var cityData2 = JSON.stringify(alerts[i].data || "");
-                                if (cityData2.indexOf("חולון") !== -1) {
-                                    var dateStr = alerts[i].alertDate || alerts[i].time || "";
-                                    dateStr = dateStr.replace("T", " ").replace("Z", "");
-                                    var dtParts = dateStr.split(" ");
-                                    var dParts = dtParts[0].split("-");
-                                    var tParts = dtParts[1].split(":");
-                                    
-                                    var alertTime = new Date(dParts[0], dParts[1] - 1, dParts[2], tParts[0], tParts[1], tParts[2]);
-                                    var diffMinutes = (now.getTime() - alertTime.getTime()) / (1000 * 60);
-                                    
-                                    if (diffMinutes <= 10 && diffMinutes >= 0) {
-                                        isAlertInHolon = true;
-                                        alertTitle = alerts[i].title || alerts[i].category || "";
-                                        break; 
-                                    }
-                                }
-                            }
-
-                            var statusDiv = document.getElementById("holon-status");
-                            if (isAlertInHolon) {
-                                if (alertTitle.indexOf("בדקות הקרובות") !== -1 || alertTitle.indexOf("צפויות") !== -1) {
-                                    document.body.className = "warning";
-                                    statusDiv.innerHTML = "התרעות צפויות בדקות הקרובות";
-                                } else if (alertTitle.indexOf("רקטות") !== -1 || alertTitle.indexOf("טילים") !== -1) {
-                                    document.body.className = "emergency";
-                                    statusDiv.innerHTML = "ירי רקטות וטילים!";
-                                } else {
-                                    document.body.className = "emergency";
-                                    statusDiv.innerHTML = alertTitle !== "" ? alertTitle : "התרעה בחולון!";
-                                }
-                            } else {
-                                document.body.className = "";
-                                statusDiv.innerHTML = "חולון: אין התרעות";
-                            }
-                        } catch(e) {
-                            debugDiv.innerHTML = "שגיאת פענוח נתונים | נבדק: " + now.toLocaleTimeString("he-IL");
                         }
-                    } else {
-                        debugDiv.innerHTML = "שגיאת רשת (" + xhr.status + ") | נבדק: " + now.toLocaleTimeString("he-IL");
-                    }
+
+                        var statusDiv = document.getElementById("holon-status");
+                        if (isAlertInHolon) {
+                            if (alertTitle.indexOf("בדקות הקרובות") !== -1 || alertTitle.indexOf("צפויות") !== -1) {
+                                document.body.className = "warning";
+                                statusDiv.innerHTML = "התרעות צפויות בדקות הקרובות";
+                            } else if (alertTitle.indexOf("רקטות") !== -1 || alertTitle.indexOf("טילים") !== -1) {
+                                document.body.className = "emergency";
+                                statusDiv.innerHTML = "ירי רקטות וטילים!";
+                            } else {
+                                document.body.className = "emergency";
+                                statusDiv.innerHTML = alertTitle !== "" ? alertTitle : "התרעה בחולון!";
+                            }
+                        } else {
+                            document.body.className = "";
+                            statusDiv.innerHTML = "חולון: אין התרעות";
+                        }
+                    } catch(e) {}
                 }
             };
             xhr.send();
+        }
+
+        // פונקציית ניטור תקינות החיבור
+        function checkConnectionHealth() {
+            var now = new Date().getTime();
+            var diffSeconds = (now - lastSuccessTime) / 1000;
+            var debugDiv = document.getElementById("debug-info");
+            
+            if (diffSeconds > 25) {
+                debugDiv.style.color = "#ff7700"; // צביעה בכתום במקרה של עיכוב מתמשך
+            } else {
+                debugDiv.style.color = "#007700"; // חזרה לירוק עם חזרת העדכונים
+            }
         }
 
         function updateCountdown() {
@@ -221,6 +231,7 @@
         setInterval(updateClock, 1000);
         setInterval(updateCountdown, 1000);
         setInterval(checkHolonAlert, 7000);
+        setInterval(checkConnectionHealth, 2000); // בדיקת סטטוס צבע כל 2 שניות
         setInterval(updateWeather, 900000);
         
         updateClock(); updateCountdown(); updateWeather(); checkHolonAlert();
