@@ -81,6 +81,7 @@
         var lastSuccessTime = new Date().getTime();
         var isFetchingAlerts = false; 
         var lockTime = 0; 
+        var alertXhr = null; // משתנה גלובלי לשליטה על חיבור הרשת
 
         function updateClock() {
             var now = new Date();
@@ -115,9 +116,12 @@
         function checkHolonAlert() {
             var nowTime = new Date().getTime();
             
-            // מנגנון שבירת נעילה פנימי במקרה של תקיעת דפדפן באייפד (20 שניות)
+            // מנגנון הריגת זומבים: אם עברו 20 שניות, מחסלים את החיבור הקודם פיזית
             if (isFetchingAlerts) {
                 if (nowTime - lockTime > 20000) {
+                    if (alertXhr !== null) {
+                        alertXhr.abort(); // התיקון הקריטי: שבירת החיבור מול הדפדפן
+                    }
                     isFetchingAlerts = false;
                 } else {
                     return; 
@@ -128,24 +132,22 @@
             lockTime = nowTime;
 
             var cacheBuster = new Date().getTime();
-            // חותמת זמן כפולה כדי למנוע אגירת נתונים מול השרת המתווך
             var targetUrl = "https://api.tzevaadom.co.il/alerts-history?v=" + cacheBuster;
             var proxyUrl = "https://api.allorigins.win/get?disableCache=true&url=" + encodeURIComponent(targetUrl) + "&cb=" + cacheBuster;
             
-            var xhr = new XMLHttpRequest();
-            xhr.open("GET", proxyUrl, true);
+            alertXhr = new XMLHttpRequest();
+            alertXhr.open("GET", proxyUrl, true);
             
-            // שימוש בפקודת תקשורת מסורתית שתואמת לספארי 12
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState == 4) {
+            alertXhr.onreadystatechange = function() {
+                if (alertXhr.readyState == 4) {
                     isFetchingAlerts = false; // שחרור המנעול
                     
                     var now = new Date();
                     var debugDiv = document.getElementById("debug-info");
 
-                    if (xhr.status == 200) {
+                    if (alertXhr.status == 200) {
                         try {
-                            var response = JSON.parse(xhr.responseText);
+                            var response = JSON.parse(alertXhr.responseText);
                             var rawText = (response.contents || "").trim();
                             var alerts = [];
                             
@@ -162,7 +164,6 @@
                             
                             lastSuccessTime = now.getTime();
                             
-                            // פונקציית כוח ברוטאלי לחילוץ התאריך
                             var extractTimeObj = function(str) {
                                 var fMatch = str.match(/(\d{4}-\d{2}-\d{2})[T\s]([0-2]\d:[0-5]\d:[0-5]\d)/);
                                 if (fMatch) {
@@ -188,7 +189,6 @@
                             var latestEventText = "";
                             var latestEventTimeStr = "";
 
-                            // סריקת כל הרשימה לאיתור האירוע המאוחר ביותר בחולון
                             for (var j = 0; j < alerts.length; j++) {
                                 var rowString = JSON.stringify(alerts[j] || {});
                                 if (rowString.indexOf("חולון") !== -1) {
@@ -207,7 +207,6 @@
                                                                  (m < 10 ? "0" + m : m) + ":" + 
                                                                  (s < 10 ? "0" + s : s);
                                             
-                                            // מלל מדויק
                                             if (rowString.indexOf("בדקות הקרובות צפויות להתקבל התרעות") !== -1) {
                                                 latestEventText = "צפי להתרעות";
                                             } else if (rowString.indexOf("ירי רקטות וטילים") !== -1) {
@@ -220,7 +219,6 @@
                                 }
                             }
 
-                            // עדכון שורת הזיכרון (ללא כפילות במילה התרעה)
                             if (latestEventText !== "") {
                                 if (latestEventText === "התרעה") {
                                     debugDiv.innerHTML = "אזעקה אחרונה: " + latestEventTimeStr + " | עודכן: " + now.toLocaleTimeString("he-IL");
@@ -234,7 +232,6 @@
                             var isAlertInHolon = false;
                             var activeAlertTitle = "";
                             
-                            // סריקה לאיתור אזעקה פעילה (10 דקות אחרונות)
                             for (var i = 0; i < Math.min(alerts.length, 50); i++) {
                                 var rowStr2 = JSON.stringify(alerts[i] || {});
                                 if (rowStr2.indexOf("חולון") !== -1) {
@@ -242,7 +239,6 @@
                                     if (aObj) {
                                         var diffMinutes = (now.getTime() - aObj.getTime()) / (1000 * 60);
                                         
-                                        // טיפול במעבר יממה רק לחצות (הוסרה החרגת 24 שעות)
                                         if (diffMinutes < -1000) { diffMinutes += (24 * 60); }
                                         
                                         if (diffMinutes <= 10 && diffMinutes >= 0) {
@@ -260,7 +256,6 @@
                                 }
                             }
 
-                            // עדכון מסך מרכזי (צבעים בהתאם לסוג ההתרעה)
                             var statusDiv = document.getElementById("holon-status");
                             if (isAlertInHolon) {
                                 if (activeAlertTitle.indexOf("צפי להתרעות") !== -1) {
@@ -279,7 +274,6 @@
                             }
                         } catch(e) {}
                     } else {
-                        // חיווי תקיעויות ללא קריסת הקוד
                         if (debugDiv.innerHTML.indexOf("מבצע חיבור") !== -1) {
                             debugDiv.innerHTML = "רשת: ממתין לחיבור יציב...";
                         }
@@ -287,10 +281,9 @@
                 }
             };
 
-            xhr.send();
+            alertXhr.send();
         }
 
-        // מוניטור בריאות (כתום/ירוק) מותאם לקצב של 15 שניות
         function checkConnectionHealth() {
             var now = new Date().getTime();
             var diffSeconds = (now - lastSuccessTime) / 1000;
@@ -303,7 +296,6 @@
             }
         }
 
-        // טיימר יום הולדת לעומר
         function updateCountdown() {
             var target = new Date(2026, 3, 1, 0, 0, 0); 
             var diff = target - new Date();
