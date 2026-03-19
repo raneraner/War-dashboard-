@@ -79,7 +79,7 @@
 
     <script>
         var lastSuccessTime = new Date().getTime();
-        var isFetchingAlerts = false; // שומר שמונע שליחת בקשות כפולות במקביל
+        var isFetchingAlerts = false; 
 
         function updateClock() {
             var now = new Date();
@@ -112,27 +112,26 @@
         }
 
         function checkHolonAlert() {
-            // אם בקשה קודמת עדיין לא הסתיימה, אל תייצר פקק
             if (isFetchingAlerts) return;
             isFetchingAlerts = true;
 
             var cacheBuster = new Date().getTime();
             var targetUrl = "https://api.tzevaadom.co.il/alerts-history?v=" + cacheBuster;
-            // שימוש בנתיב raw המהיר והנקי
-            var proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl) + "&cb=" + cacheBuster;
+            var proxyUrl = "https://api.allorigins.win/get?disableCache=true&url=" + encodeURIComponent(targetUrl) + "&cb=" + cacheBuster;
             
             var xhr = new XMLHttpRequest();
             xhr.open("GET", proxyUrl, true);
-            xhr.timeout = 10000; // חותך את החיבור בכוח אם אין תשובה תוך 10 שניות
+            xhr.timeout = 10000; 
 
             xhr.onload = function() {
-                isFetchingAlerts = false; // שחרור השומר
+                isFetchingAlerts = false; 
                 var now = new Date();
                 var debugDiv = document.getElementById("debug-info");
 
                 if (xhr.status === 200) {
                     try {
-                        var rawText = xhr.responseText.trim();
+                        var response = JSON.parse(xhr.responseText);
+                        var rawText = (response.contents || "").trim();
                         var alerts = [];
                         
                         if (rawText !== "" && rawText.indexOf("<") !== 0) {
@@ -260,7 +259,6 @@
                 }
             };
 
-            // טיפול בשגיאות רשת וניתוקים בכוח
             xhr.onerror = function() {
                 isFetchingAlerts = false;
             };
