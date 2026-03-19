@@ -112,143 +112,152 @@
 
         function checkHolonAlert() {
             var cacheBuster = new Date().getTime();
+            // הוספת חותמת זמן כפולה למניעת אגירת נתונים (קאש)
             var targetUrl = "https://api.tzevaadom.co.il/alerts-history?v=" + cacheBuster;
-            var proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(targetUrl);
-            var xhr = new XMLHttpRequest();
+            var proxyUrl = "https://api.allorigins.win/get?disableCache=true&url=" + encodeURIComponent(targetUrl) + "&cb=" + cacheBuster;
             
+            var xhr = new XMLHttpRequest();
             xhr.open("GET", proxyUrl, true);
             xhr.onreadystatechange = function() {
                 var now = new Date();
                 var debugDiv = document.getElementById("debug-info");
 
-                if (xhr.readyState == 4 && xhr.status == 200) {
-                    try {
-                        var rawText = xhr.responseText.trim();
-                        var alerts = [];
-                        
-                        if (rawText !== "" && rawText.indexOf("<") !== 0) {
-                            var parsedData = JSON.parse(rawText);
-                            if (Array.isArray(parsedData)) {
-                                alerts = parsedData;
-                            } else if (parsedData && Array.isArray(parsedData.alerts)) {
-                                alerts = parsedData.alerts;
-                            } else if (parsedData && Array.isArray(parsedData.data)) {
-                                alerts = parsedData.data;
+                if (xhr.readyState == 4) {
+                    if (xhr.status == 200) {
+                        try {
+                            var response = JSON.parse(xhr.responseText);
+                            var rawText = (response.contents || "").trim();
+                            var alerts = [];
+                            
+                            if (rawText !== "" && rawText.indexOf("<") !== 0) {
+                                var parsedData = JSON.parse(rawText);
+                                if (Array.isArray(parsedData)) {
+                                    alerts = parsedData;
+                                } else if (parsedData && Array.isArray(parsedData.alerts)) {
+                                    alerts = parsedData.alerts;
+                                } else if (parsedData && Array.isArray(parsedData.data)) {
+                                    alerts = parsedData.data;
+                                }
                             }
-                        }
-                        
-                        lastSuccessTime = now.getTime();
-                        
-                        var extractTimeObj = function(str) {
-                            var fMatch = str.match(/(\d{4}-\d{2}-\d{2})[T\s]([0-2]\d:[0-5]\d:[0-5]\d)/);
-                            if (fMatch) {
-                                var dp = fMatch[1].split("-");
-                                var tp = fMatch[2].split(":");
-                                return new Date(dp[0], dp[1]-1, dp[2], tp[0], tp[1], tp[2]);
-                            }
-                            var nMatch = str.match(/"(?:time|date|alertDate)"\s*:\s*(17\d{8,11})/i);
-                            if (nMatch) {
-                                var ts = parseInt(nMatch[1]);
-                                return new Date(ts > 9999999999 ? ts : ts * 1000);
-                            }
-                            var tMatch = str.match(/([0-2]\d):([0-5]\d):([0-5]\d)/);
-                            if (tMatch) {
-                                var d = new Date();
-                                d.setHours(parseInt(tMatch[1]), parseInt(tMatch[2]), parseInt(tMatch[3]), 0);
-                                return d;
-                            }
-                            return null;
-                        };
+                            
+                            lastSuccessTime = now.getTime();
+                            
+                            var extractTimeObj = function(str) {
+                                var fMatch = str.match(/(\d{4}-\d{2}-\d{2})[T\s]([0-2]\d:[0-5]\d:[0-5]\d)/);
+                                if (fMatch) {
+                                    var dp = fMatch[1].split("-");
+                                    var tp = fMatch[2].split(":");
+                                    return new Date(dp[0], dp[1]-1, dp[2], tp[0], tp[1], tp[2]);
+                                }
+                                var nMatch = str.match(/"(?:time|date|alertDate)"\s*:\s*(17\d{8,11})/i);
+                                if (nMatch) {
+                                    var ts = parseInt(nMatch[1]);
+                                    return new Date(ts > 9999999999 ? ts : ts * 1000);
+                                }
+                                var tMatch = str.match(/([0-2]\d):([0-5]\d):([0-5]\d)/);
+                                if (tMatch) {
+                                    var d = new Date();
+                                    d.setHours(parseInt(tMatch[1]), parseInt(tMatch[2]), parseInt(tMatch[3]), 0);
+                                    return d;
+                                }
+                                return null;
+                            };
 
-                        var latestEventTime = 0;
-                        var latestEventText = "";
-                        var latestEventTimeStr = "";
+                            var latestEventTime = 0;
+                            var latestEventText = "";
+                            var latestEventTimeStr = "";
 
-                        for (var j = 0; j < alerts.length; j++) {
-                            var rowString = JSON.stringify(alerts[j] || {});
-                            if (rowString.indexOf("חולון") !== -1) {
-                                var dObj = extractTimeObj(rowString);
-                                
-                                if (dObj) {
-                                    var eventTs = dObj.getTime();
+                            for (var j = 0; j < alerts.length; j++) {
+                                var rowString = JSON.stringify(alerts[j] || {});
+                                if (rowString.indexOf("חולון") !== -1) {
+                                    var dObj = extractTimeObj(rowString);
                                     
-                                    if (eventTs > latestEventTime) {
-                                        latestEventTime = eventTs;
+                                    if (dObj) {
+                                        var eventTs = dObj.getTime();
                                         
-                                        var h = dObj.getHours();
-                                        var m = dObj.getMinutes();
-                                        var s = dObj.getSeconds();
-                                        latestEventTimeStr = (h < 10 ? "0" + h : h) + ":" + 
-                                                             (m < 10 ? "0" + m : m) + ":" + 
-                                                             (s < 10 ? "0" + s : s);
-                                        
-                                        if (rowString.indexOf("בדקות הקרובות צפויות להתקבל התרעות") !== -1) {
-                                            latestEventText = "צפי להתרעות";
-                                        } else if (rowString.indexOf("ירי רקטות וטילים") !== -1) {
-                                            latestEventText = "ירי טילים";
-                                        } else {
-                                            latestEventText = "התרעה";
+                                        if (eventTs > latestEventTime) {
+                                            latestEventTime = eventTs;
+                                            
+                                            var h = dObj.getHours();
+                                            var m = dObj.getMinutes();
+                                            var s = dObj.getSeconds();
+                                            latestEventTimeStr = (h < 10 ? "0" + h : h) + ":" + 
+                                                                 (m < 10 ? "0" + m : m) + ":" + 
+                                                                 (s < 10 ? "0" + s : s);
+                                            
+                                            if (rowString.indexOf("בדקות הקרובות צפויות להתקבל התרעות") !== -1) {
+                                                latestEventText = "צפי להתרעות";
+                                            } else if (rowString.indexOf("ירי רקטות וטילים") !== -1) {
+                                                latestEventText = "ירי טילים";
+                                            } else {
+                                                latestEventText = "התרעה";
+                                            }
                                         }
                                     }
                                 }
                             }
-                        }
 
-                        if (latestEventText !== "") {
-                            if (latestEventText === "התרעה") {
-                                debugDiv.innerHTML = "אזעקה אחרונה: " + latestEventTimeStr + " | עודכן: " + now.toLocaleTimeString("he-IL");
+                            if (latestEventText !== "") {
+                                if (latestEventText === "התרעה") {
+                                    debugDiv.innerHTML = "אזעקה אחרונה: " + latestEventTimeStr + " | עודכן: " + now.toLocaleTimeString("he-IL");
+                                } else {
+                                    debugDiv.innerHTML = "אזעקה אחרונה: " + latestEventText + " (" + latestEventTimeStr + ") | עודכן: " + now.toLocaleTimeString("he-IL");
+                                }
                             } else {
-                                debugDiv.innerHTML = "אזעקה אחרונה: " + latestEventText + " (" + latestEventTimeStr + ") | עודכן: " + now.toLocaleTimeString("he-IL");
+                                debugDiv.innerHTML = "שקט בחולון (אין נתוני עבר) | עודכן: " + now.toLocaleTimeString("he-IL");
                             }
-                        } else {
-                            debugDiv.innerHTML = "שקט בחולון (אין נתוני עבר) | עודכן: " + now.toLocaleTimeString("he-IL");
-                        }
 
-                        var isAlertInHolon = false;
-                        var activeAlertTitle = "";
-                        
-                        for (var i = 0; i < Math.min(alerts.length, 50); i++) {
-                            var rowStr2 = JSON.stringify(alerts[i] || {});
-                            if (rowStr2.indexOf("חולון") !== -1) {
-                                var aObj = extractTimeObj(rowStr2);
-                                if (aObj) {
-                                    var diffMinutes = (now.getTime() - aObj.getTime()) / (1000 * 60);
-                                    
-                                    // טיפול קפיצת יממה (חצות בלבד). לולאת הזמן של היממה השלמה הוסרה!
-                                    if (diffMinutes < -1000) { diffMinutes += (24 * 60); }
-                                    
-                                    if (diffMinutes <= 10 && diffMinutes >= 0) {
-                                        isAlertInHolon = true;
-                                        if (rowStr2.indexOf("בדקות הקרובות צפויות להתקבל התרעות") !== -1) {
-                                            activeAlertTitle = "צפי להתרעות";
-                                        } else if (rowStr2.indexOf("ירי רקטות וטילים") !== -1) {
-                                            activeAlertTitle = "ירי טילים!";
-                                        } else {
-                                            activeAlertTitle = "התרעה בחולון!";
+                            var isAlertInHolon = false;
+                            var activeAlertTitle = "";
+                            
+                            for (var i = 0; i < Math.min(alerts.length, 50); i++) {
+                                var rowStr2 = JSON.stringify(alerts[i] || {});
+                                if (rowStr2.indexOf("חולון") !== -1) {
+                                    var aObj = extractTimeObj(rowStr2);
+                                    if (aObj) {
+                                        var diffMinutes = (now.getTime() - aObj.getTime()) / (1000 * 60);
+                                        
+                                        if (diffMinutes < -1000) { diffMinutes += (24 * 60); }
+                                        
+                                        if (diffMinutes <= 10 && diffMinutes >= 0) {
+                                            isAlertInHolon = true;
+                                            if (rowStr2.indexOf("בדקות הקרובות צפויות להתקבל התרעות") !== -1) {
+                                                activeAlertTitle = "צפי להתרעות";
+                                            } else if (rowStr2.indexOf("ירי רקטות וטילים") !== -1) {
+                                                activeAlertTitle = "ירי טילים!";
+                                            } else {
+                                                activeAlertTitle = "התרעה בחולון!";
+                                            }
+                                            break; 
                                         }
-                                        break; 
                                     }
                                 }
                             }
-                        }
 
-                        var statusDiv = document.getElementById("holon-status");
-                        if (isAlertInHolon) {
-                            if (activeAlertTitle.indexOf("צפי להתרעות") !== -1) {
-                                document.body.className = "warning";
-                                statusDiv.innerHTML = "התרעות צפויות בדקות הקרובות";
-                            } else if (activeAlertTitle.indexOf("טילים") !== -1) {
-                                document.body.className = "emergency";
-                                statusDiv.innerHTML = "ירי רקטות וטילים!";
+                            var statusDiv = document.getElementById("holon-status");
+                            if (isAlertInHolon) {
+                                if (activeAlertTitle.indexOf("צפי להתרעות") !== -1) {
+                                    document.body.className = "warning";
+                                    statusDiv.innerHTML = "התרעות צפויות בדקות הקרובות";
+                                } else if (activeAlertTitle.indexOf("טילים") !== -1) {
+                                    document.body.className = "emergency";
+                                    statusDiv.innerHTML = "ירי רקטות וטילים!";
+                                } else {
+                                    document.body.className = "emergency";
+                                    statusDiv.innerHTML = activeAlertTitle;
+                                }
                             } else {
-                                document.body.className = "emergency";
-                                statusDiv.innerHTML = activeAlertTitle;
+                                document.body.className = "";
+                                statusDiv.innerHTML = "חולון: אין התרעות";
                             }
-                        } else {
-                            document.body.className = "";
-                            statusDiv.innerHTML = "חולון: אין התרעות";
+                        } catch(e) {}
+                    } else {
+                        // הוספת חיווי ברור במידה ויש שגיאת רשת
+                        var debugDiv = document.getElementById("debug-info");
+                        if (debugDiv.innerHTML.indexOf("מבצע חיבור") !== -1) {
+                            debugDiv.innerHTML = "רשת: שגיאת חיבור... ממתין לחידוש";
                         }
-                    } catch(e) {}
+                    }
                 }
             };
             xhr.send();
