@@ -113,7 +113,7 @@
         function checkHolonAlert() {
             var cacheBuster = new Date().getTime();
             var targetUrl = "https://api.tzevaadom.co.il/alerts-history?v=" + cacheBuster;
-            var proxyUrl = "https://api.allorigins.win/get?disableCache=true&url=" + encodeURIComponent(targetUrl);
+            var proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(targetUrl);
             var xhr = new XMLHttpRequest();
             
             xhr.open("GET", proxyUrl, true);
@@ -123,8 +123,7 @@
 
                 if (xhr.readyState == 4 && xhr.status == 200) {
                     try {
-                        var response = JSON.parse(xhr.responseText);
-                        var rawText = (response.contents || "").trim();
+                        var rawText = xhr.responseText.trim();
                         var alerts = [];
                         
                         if (rawText !== "" && rawText.indexOf("<") !== 0) {
@@ -260,7 +259,8 @@
             var diffSeconds = (now - lastSuccessTime) / 1000;
             var debugDiv = document.getElementById("debug-info");
             
-            if (diffSeconds > 25) {
+            // תוקן ל-35 שניות כדי להתאים לקצב הדגימה החדש של 15 שניות
+            if (diffSeconds > 35) {
                 debugDiv.style.color = "#ff7700"; 
             } else {
                 debugDiv.style.color = "#007700"; 
@@ -281,7 +281,7 @@
 
         setInterval(updateClock, 1000);
         setInterval(updateCountdown, 1000);
-        setInterval(checkHolonAlert, 7000);
+        setInterval(checkHolonAlert, 15000); // תוקן ל-15 שניות
         setInterval(checkConnectionHealth, 2000); 
         setInterval(updateWeather, 900000);
         
