@@ -70,7 +70,7 @@
 
     <div class="section-title">מלחמה:</div>
     <div id="holon-status">חולון: אין התרעות</div>
-    <div id="debug-info">רשת: מתחבר לשרת ישראלי...</div>
+    <div id="debug-info">רשת: מבצע מעקף נתונים...</div>
 
     <div class="separator"></div>
 
@@ -111,11 +111,13 @@
         }
 
         function checkHolonAlert() {
-            // התחברות ישירה ל-API הקהילתי הישראלי, ללא שום מתווך
-            var targetUrl = "https://api.tzevaadom.co.il/alerts-history?v=" + new Date().getTime();
+            // הדרך המנצחת: מתווך אמין (AllOrigins) שמושך נתונים מהשרת של צבע אדום
+            var cacheBuster = new Date().getTime();
+            var targetUrl = "https://api.tzevaadom.co.il/alerts-history?v=" + cacheBuster;
+            var proxyUrl = "https://api.allorigins.win/get?disableCache=true&url=" + encodeURIComponent(targetUrl);
             var xhr = new XMLHttpRequest();
             
-            xhr.open("GET", targetUrl, true);
+            xhr.open("GET", proxyUrl, true);
             xhr.onreadystatechange = function() {
                 var now = new Date();
                 var debugDiv = document.getElementById("debug-info");
@@ -123,12 +125,12 @@
                 if (xhr.readyState == 4) {
                     if (xhr.status == 200) {
                         try {
-                            var rawText = xhr.responseText.trim();
+                            var response = JSON.parse(xhr.responseText);
+                            var rawText = (response.contents || "").trim();
                             var alerts = [];
                             
                             if (rawText !== "" && rawText.indexOf("<") !== 0) {
                                 var parsedData = JSON.parse(rawText);
-                                // תמיכה במבני נתונים שונים (מערך ישיר או בתוך אובייקט)
                                 if (Array.isArray(parsedData)) {
                                     alerts = parsedData;
                                 } else if (parsedData && Array.isArray(parsedData.alerts)) {
@@ -138,9 +140,7 @@
                                 }
                             }
                             
-                            // חיפוש חולון לעדכון הזיכרון
                             for (var j = 0; j < alerts.length; j++) {
-                                // הפיכה לטקסט כדי ש-indexOf יעבוד גם אם זה מערך וגם אם מחרוזת
                                 var cityData = JSON.stringify(alerts[j].data || "");
                                 if (cityData.indexOf("חולון") !== -1) {
                                     var timeStr = alerts[j].alertDate || alerts[j].time || "";
@@ -151,17 +151,17 @@
                             }
 
                             if (lastKnownHolonAlert !== "") {
-                                debugDiv.innerHTML = "אחרון בחולון: " + lastKnownHolonAlert + " | מחובר לישראל: " + now.toLocaleTimeString("he-IL");
+                                debugDiv.innerHTML = "אחרון בחולון: " + lastKnownHolonAlert + " | נבדק (עוקף חסימות): " + now.toLocaleTimeString("he-IL");
                             } else {
-                                debugDiv.innerHTML = "שקט בחולון (אין נתוני עבר) | מחובר לישראל: " + now.toLocaleTimeString("he-IL");
+                                debugDiv.innerHTML = "שקט בחולון (אין נתוני עבר) | נבדק (עוקף חסימות): " + now.toLocaleTimeString("he-IL");
                             }
 
                             var isAlertInHolon = false;
                             var alertTitle = "";
                             
                             for (var i = 0; i < Math.min(alerts.length, 50); i++) {
-                                var cityData = JSON.stringify(alerts[i].data || "");
-                                if (cityData.indexOf("חולון") !== -1) {
+                                var cityData2 = JSON.stringify(alerts[i].data || "");
+                                if (cityData2.indexOf("חולון") !== -1) {
                                     var dateStr = alerts[i].alertDate || alerts[i].time || "";
                                     dateStr = dateStr.replace("T", " ").replace("Z", "");
                                     var dtParts = dateStr.split(" ");
@@ -196,10 +196,10 @@
                                 statusDiv.innerHTML = "חולון: אין התרעות";
                             }
                         } catch(e) {
-                            debugDiv.innerHTML = "שגיאת פענוח נתונים | מחובר לישראל: " + now.toLocaleTimeString("he-IL");
+                            debugDiv.innerHTML = "שגיאת פענוח נתונים | נבדק: " + now.toLocaleTimeString("he-IL");
                         }
                     } else {
-                        debugDiv.innerHTML = "שגיאת רשת (" + xhr.status + ") | מחובר לישראל: " + now.toLocaleTimeString("he-IL");
+                        debugDiv.innerHTML = "שגיאת רשת (" + xhr.status + ") | נבדק: " + now.toLocaleTimeString("he-IL");
                     }
                 }
             };
