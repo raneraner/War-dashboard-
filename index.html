@@ -165,7 +165,6 @@
                         var latestEventText = "";
                         var latestEventTimeStr = "";
 
-                        // סריקה מלאה של כל הקובץ לאיתור האירוע האחרון כרונולוגית
                         for (var j = 0; j < alerts.length; j++) {
                             var rowString = JSON.stringify(alerts[j] || {});
                             if (rowString.indexOf("חולון") !== -1) {
@@ -174,7 +173,6 @@
                                 if (dObj) {
                                     var eventTs = dObj.getTime();
                                     
-                                    // בודק אם זה האירוע המאוחר ביותר שמצאנו עד כה
                                     if (eventTs > latestEventTime) {
                                         latestEventTime = eventTs;
                                         
@@ -185,7 +183,6 @@
                                                              (m < 10 ? "0" + m : m) + ":" + 
                                                              (s < 10 ? "0" + s : s);
                                         
-                                        // זיהוי מדויק לפי הפקודות של פיקוד העורף
                                         if (rowString.indexOf("בדקות הקרובות צפויות להתקבל התרעות") !== -1) {
                                             latestEventText = "צפי להתרעות";
                                         } else if (rowString.indexOf("ירי רקטות וטילים") !== -1) {
@@ -199,7 +196,7 @@
                         }
 
                         if (latestEventText !== "") {
-                            debugDiv.innerHTML = "אירוע אחרון: " + latestEventText + " (" + latestEventTimeStr + ") | עודכן: " + now.toLocaleTimeString("he-IL");
+                            debugDiv.innerHTML = "אזעקה אחרונה: " + latestEventText + " (" + latestEventTimeStr + ") | עודכן: " + now.toLocaleTimeString("he-IL");
                         } else {
                             debugDiv.innerHTML = "שקט בחולון (אין נתוני עבר) | עודכן: " + now.toLocaleTimeString("he-IL");
                         }
