@@ -214,8 +214,8 @@
                                 if (aObj) {
                                     var diffMinutes = (now.getTime() - aObj.getTime()) / (1000 * 60);
                                     
+                                    // טיפול קפיצת יממה (חצות בלבד). לולאת הזמן של היממה השלמה הוסרה!
                                     if (diffMinutes < -1000) { diffMinutes += (24 * 60); }
-                                    if (diffMinutes > 1000) { diffMinutes -= (24 * 60); }
                                     
                                     if (diffMinutes <= 10 && diffMinutes >= 0) {
                                         isAlertInHolon = true;
@@ -259,7 +259,6 @@
             var diffSeconds = (now - lastSuccessTime) / 1000;
             var debugDiv = document.getElementById("debug-info");
             
-            // תוקן ל-35 שניות כדי להתאים לקצב הדגימה החדש של 15 שניות
             if (diffSeconds > 35) {
                 debugDiv.style.color = "#ff7700"; 
             } else {
@@ -281,7 +280,7 @@
 
         setInterval(updateClock, 1000);
         setInterval(updateCountdown, 1000);
-        setInterval(checkHolonAlert, 15000); // תוקן ל-15 שניות
+        setInterval(checkHolonAlert, 15000); 
         setInterval(checkConnectionHealth, 2000); 
         setInterval(updateWeather, 900000);
         
