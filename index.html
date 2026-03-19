@@ -146,19 +146,15 @@
                             var rowString = JSON.stringify(alerts[j] || {});
                             if (rowString.indexOf("חולון") !== -1) {
                                 
-                                var timeStrRaw = alerts[j].alertDate || alerts[j].time || "";
-                                var timeOnly = "";
-                                timeStrRaw = timeStrRaw.replace("T", " ").replace("Z", "");
-                                if (timeStrRaw.indexOf(" ") !== -1) {
-                                    var tPartsObj = timeStrRaw.split(" ")[1].split(":");
-                                    // מניעת שגיאת מילישניות
-                                    timeOnly = tPartsObj[0] + ":" + tPartsObj[1] + ":" + tPartsObj[2].split(".")[0]; 
-                                } else {
-                                    timeOnly = timeStrRaw;
+                                // חילוץ זמן בכוח ברוטאלי
+                                var timeMatch = rowString.match(/([0-2]\d:[0-5]\d:[0-5]\d)/);
+                                var timeOnly = timeMatch ? timeMatch[1] : "";
+                                if (!timeOnly) {
+                                    var shortMatch = rowString.match(/([0-2]\d:[0-5]\d)/);
+                                    timeOnly = shortMatch ? shortMatch[1] : "לא ידוע";
                                 }
 
-                                // זיהוי סוג ההתרעה לזיכרון העבר
-                                var rawTitle = alerts[j].title || alerts[j].category || alerts[j].description || "";
+                                var rawTitle = (alerts[j].title || alerts[j].category || alerts[j].description || "");
                                 var memType = "התרעה";
                                 if (rawTitle.indexOf("בדקות הקרובות") !== -1 || rawTitle.indexOf("צפויות") !== -1) {
                                     memType = "התרעה מקדימה";
@@ -187,17 +183,18 @@
                             var rowStr2 = JSON.stringify(alerts[i] || {});
                             if (rowStr2.indexOf("חולון") !== -1) {
                                 
-                                var dateStr = alerts[i].alertDate || alerts[i].time || "";
-                                dateStr = dateStr.replace("T", " ").replace("Z", "");
-                                var dtParts = dateStr.split(" ");
-                                
-                                if (dtParts.length > 1) {
-                                    var dParts = dtParts[0].split("-");
-                                    var tParts = dtParts[1].split(":");
-                                    var secPart = tParts[2].split(".")[0]; // נקי ממילישניות
+                                // חילוץ זמן פעיל בכוח ברוטאלי
+                                var tMatch = rowStr2.match(/([0-2]\d):([0-5]\d):([0-5]\d)/);
+                                if (tMatch) {
+                                    var alertTime = new Date();
+                                    alertTime.setHours(parseInt(tMatch[1]), parseInt(tMatch[2]), parseInt(tMatch[3]), 0);
                                     
-                                    var alertTime = new Date(dParts[0], dParts[1] - 1, dParts[2], tParts[0], tParts[1], secPart);
                                     var diffMinutes = (now.getTime() - alertTime.getTime()) / (1000 * 60);
+                                    
+                                    // טיפול בקפיצת יממה (אזעקה בחצות)
+                                    if (diffMinutes < -1000) {
+                                        diffMinutes += (24 * 60);
+                                    }
                                     
                                     if (diffMinutes <= 10 && diffMinutes >= 0) {
                                         isAlertInHolon = true;
