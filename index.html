@@ -78,7 +78,6 @@
     <div id="timer">טוען...</div>
 
     <script>
-        var lastKnownHolonAlert = ""; 
         var lastSuccessTime = new Date().getTime();
 
         function updateClock() {
@@ -141,22 +140,18 @@
                         
                         lastSuccessTime = now.getTime();
                         
-                        // פונקציית צייד הזמנים מתוך טקסט גולמי
                         var extractTimeObj = function(str) {
-                            // 1. ניסיון לחלץ תאריך ושעה מלאים (ISO)
                             var fMatch = str.match(/(\d{4}-\d{2}-\d{2})[T\s]([0-2]\d:[0-5]\d:[0-5]\d)/);
                             if (fMatch) {
                                 var dp = fMatch[1].split("-");
                                 var tp = fMatch[2].split(":");
                                 return new Date(dp[0], dp[1]-1, dp[2], tp[0], tp[1], tp[2]);
                             }
-                            // 2. ניסיון לחלץ חותמת זמן של מחשבים (Unix Timestamp)
                             var nMatch = str.match(/"(?:time|date|alertDate)"\s*:\s*(17\d{8,11})/i);
                             if (nMatch) {
                                 var ts = parseInt(nMatch[1]);
                                 return new Date(ts > 9999999999 ? ts : ts * 1000);
                             }
-                            // 3. גיבוי - חילוץ שעות דקות ושניות נקי
                             var tMatch = str.match(/([0-2]\d):([0-5]\d):([0-5]\d)/);
                             if (tMatch) {
                                 var d = new Date();
@@ -166,41 +161,45 @@
                             return null;
                         };
 
-                        // חיפוש גורף לזיכרון התרעת העבר
+                        var latestEventTime = 0;
+                        var latestEventText = "";
+                        var latestEventTimeStr = "";
+
+                        // סריקה מלאה של כל הקובץ לאיתור האירוע האחרון כרונולוגית
                         for (var j = 0; j < alerts.length; j++) {
                             var rowString = JSON.stringify(alerts[j] || {});
                             if (rowString.indexOf("חולון") !== -1) {
-                                
-                                var timeOnly = "לא ידוע";
                                 var dObj = extractTimeObj(rowString);
                                 
-                                // המרת האובייקט לשעה יפה לתצוגה
                                 if (dObj) {
-                                    var h = dObj.getHours();
-                                    var m = dObj.getMinutes();
-                                    var s = dObj.getSeconds();
-                                    timeOnly = (h < 10 ? "0" + h : h) + ":" + 
-                                               (m < 10 ? "0" + m : m) + ":" + 
-                                               (s < 10 ? "0" + s : s);
+                                    var eventTs = dObj.getTime();
+                                    
+                                    // בודק אם זה האירוע המאוחר ביותר שמצאנו עד כה
+                                    if (eventTs > latestEventTime) {
+                                        latestEventTime = eventTs;
+                                        
+                                        var h = dObj.getHours();
+                                        var m = dObj.getMinutes();
+                                        var s = dObj.getSeconds();
+                                        latestEventTimeStr = (h < 10 ? "0" + h : h) + ":" + 
+                                                             (m < 10 ? "0" + m : m) + ":" + 
+                                                             (s < 10 ? "0" + s : s);
+                                        
+                                        // זיהוי מדויק לפי הפקודות של פיקוד העורף
+                                        if (rowString.indexOf("בדקות הקרובות צפויות להתקבל התרעות") !== -1) {
+                                            latestEventText = "צפי להתרעות";
+                                        } else if (rowString.indexOf("ירי רקטות וטילים") !== -1) {
+                                            latestEventText = "ירי טילים";
+                                        } else {
+                                            latestEventText = "התרעה";
+                                        }
+                                    }
                                 }
-
-                                var memType = "התרעה";
-                                if (rowString.indexOf("בדקות הקרובות") !== -1 || rowString.indexOf("צפויות") !== -1) {
-                                    memType = "התרעה מקדימה";
-                                } else if (rowString.indexOf("רקטות") !== -1 || rowString.indexOf("טילים") !== -1) {
-                                    memType = "ירי טילים";
-                                } else {
-                                    var catMatch = rowString.match(/"(?:title|category|desc|description)"\s*:\s*"([^"]+)"/i);
-                                    if (catMatch) memType = catMatch[1];
-                                }
-
-                                lastKnownHolonAlert = memType + " (" + timeOnly + ")";
-                                break; 
                             }
                         }
 
-                        if (lastKnownHolonAlert !== "") {
-                            debugDiv.innerHTML = "אחרון בחולון: " + lastKnownHolonAlert + " | עודכן: " + now.toLocaleTimeString("he-IL");
+                        if (latestEventText !== "") {
+                            debugDiv.innerHTML = "אירוע אחרון: " + latestEventText + " (" + latestEventTimeStr + ") | עודכן: " + now.toLocaleTimeString("he-IL");
                         } else {
                             debugDiv.innerHTML = "שקט בחולון (אין נתוני עבר) | עודכן: " + now.toLocaleTimeString("he-IL");
                         }
@@ -208,28 +207,24 @@
                         var isAlertInHolon = false;
                         var activeAlertTitle = "";
                         
-                        // חיפוש גורף להתרעה פעילה
                         for (var i = 0; i < Math.min(alerts.length, 50); i++) {
                             var rowStr2 = JSON.stringify(alerts[i] || {});
                             if (rowStr2.indexOf("חולון") !== -1) {
-                                
                                 var aObj = extractTimeObj(rowStr2);
                                 if (aObj) {
                                     var diffMinutes = (now.getTime() - aObj.getTime()) / (1000 * 60);
                                     
-                                    // תיקון למקרה שבו האזעקה חצתה את שעת חצות הלילה
                                     if (diffMinutes < -1000) { diffMinutes += (24 * 60); }
                                     if (diffMinutes > 1000) { diffMinutes -= (24 * 60); }
                                     
                                     if (diffMinutes <= 10 && diffMinutes >= 0) {
                                         isAlertInHolon = true;
-                                        if (rowStr2.indexOf("בדקות הקרובות") !== -1 || rowStr2.indexOf("צפויות") !== -1) {
-                                            activeAlertTitle = "התרעות צפויות בדקות הקרובות";
-                                        } else if (rowStr2.indexOf("רקטות") !== -1 || rowStr2.indexOf("טילים") !== -1) {
-                                            activeAlertTitle = "ירי רקטות וטילים!";
+                                        if (rowStr2.indexOf("בדקות הקרובות צפויות להתקבל התרעות") !== -1) {
+                                            activeAlertTitle = "צפי להתרעות";
+                                        } else if (rowStr2.indexOf("ירי רקטות וטילים") !== -1) {
+                                            activeAlertTitle = "ירי טילים!";
                                         } else {
-                                            var catMatch2 = rowStr2.match(/"(?:title|category|desc|description)"\s*:\s*"([^"]+)"/i);
-                                            activeAlertTitle = catMatch2 ? catMatch2[1] : "התרעה בחולון!";
+                                            activeAlertTitle = "התרעה בחולון!";
                                         }
                                         break; 
                                     }
@@ -239,15 +234,15 @@
 
                         var statusDiv = document.getElementById("holon-status");
                         if (isAlertInHolon) {
-                            if (activeAlertTitle.indexOf("בדקות הקרובות") !== -1 || activeAlertTitle.indexOf("צפויות") !== -1) {
+                            if (activeAlertTitle.indexOf("צפי להתרעות") !== -1) {
                                 document.body.className = "warning";
                                 statusDiv.innerHTML = "התרעות צפויות בדקות הקרובות";
-                            } else if (activeAlertTitle.indexOf("רקטות") !== -1 || activeAlertTitle.indexOf("טילים") !== -1) {
+                            } else if (activeAlertTitle.indexOf("טילים") !== -1) {
                                 document.body.className = "emergency";
                                 statusDiv.innerHTML = "ירי רקטות וטילים!";
                             } else {
                                 document.body.className = "emergency";
-                                statusDiv.innerHTML = activeAlertTitle !== "" ? activeAlertTitle : "התרעה בחולון!";
+                                statusDiv.innerHTML = activeAlertTitle;
                             }
                         } else {
                             document.body.className = "";
