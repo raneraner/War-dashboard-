@@ -141,17 +141,41 @@
                         
                         lastSuccessTime = now.getTime();
                         
+                        // פונקציית עזר לפענוח התאריך מכל פורמט שהשרת זורק
+                        var getAlertDate = function(obj) {
+                            var val = obj.time || obj.date || obj.alertDate;
+                            if (typeof val === "number") {
+                                // המרה של Unix Timestamp לזמן מקומי
+                                return new Date(val > 9999999999 ? val : val * 1000);
+                            }
+                            var str = JSON.stringify(obj || {});
+                            var m = str.match(/(\d{4})-(\d{2})-(\d{2}).*?([0-2]\d):([0-5]\d):([0-5]\d)/);
+                            if (m) return new Date(m[1], m[2]-1, m[3], m[4], m[5], m[6]);
+                            var tm = str.match(/([0-2]\d):([0-5]\d):([0-5]\d)/);
+                            if (tm) {
+                                var d = new Date();
+                                d.setHours(parseInt(tm[1]), parseInt(tm[2]), parseInt(tm[3]), 0);
+                                return d;
+                            }
+                            return null;
+                        };
+
                         // חיפוש גורף לזיכרון התרעת העבר
                         for (var j = 0; j < alerts.length; j++) {
                             var rowString = JSON.stringify(alerts[j] || {});
                             if (rowString.indexOf("חולון") !== -1) {
                                 
-                                // חילוץ זמן בכוח ברוטאלי
-                                var timeMatch = rowString.match(/([0-2]\d:[0-5]\d:[0-5]\d)/);
-                                var timeOnly = timeMatch ? timeMatch[1] : "";
-                                if (!timeOnly) {
-                                    var shortMatch = rowString.match(/([0-2]\d:[0-5]\d)/);
-                                    timeOnly = shortMatch ? shortMatch[1] : "לא ידוע";
+                                var timeOnly = "לא ידוע";
+                                var alertDateObj = getAlertDate(alerts[j]);
+                                
+                                // אם הפענוח הצליח, מרכיבים שעה יפה לתצוגה
+                                if (alertDateObj) {
+                                    var ah = alertDateObj.getHours();
+                                    var am = alertDateObj.getMinutes();
+                                    var as = alertDateObj.getSeconds();
+                                    timeOnly = (ah < 10 ? "0" + ah : ah) + ":" + 
+                                               (am < 10 ? "0" + am : am) + ":" + 
+                                               (as < 10 ? "0" + as : as);
                                 }
 
                                 var rawTitle = (alerts[j].title || alerts[j].category || alerts[j].description || "");
@@ -183,13 +207,9 @@
                             var rowStr2 = JSON.stringify(alerts[i] || {});
                             if (rowStr2.indexOf("חולון") !== -1) {
                                 
-                                // חילוץ זמן פעיל בכוח ברוטאלי
-                                var tMatch = rowStr2.match(/([0-2]\d):([0-5]\d):([0-5]\d)/);
-                                if (tMatch) {
-                                    var alertTime = new Date();
-                                    alertTime.setHours(parseInt(tMatch[1]), parseInt(tMatch[2]), parseInt(tMatch[3]), 0);
-                                    
-                                    var diffMinutes = (now.getTime() - alertTime.getTime()) / (1000 * 60);
+                                var activeDateObj = getAlertDate(alerts[i]);
+                                if (activeDateObj) {
+                                    var diffMinutes = (now.getTime() - activeDateObj.getTime()) / (1000 * 60);
                                     
                                     // טיפול בקפיצת יממה (אזעקה בחצות)
                                     if (diffMinutes < -1000) {
