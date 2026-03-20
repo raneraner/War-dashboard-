@@ -37,6 +37,11 @@
             font-weight: bold; font-size: 50px;
         }
 
+        body.shrapnel-alert #holon-status { 
+            border-color: #ffffff; color: #ffffff; background-color: #ff0000;
+            font-weight: bold; font-size: 55px;
+        }
+
         .separator { border-top: 2px dashed #004400; margin: 25px auto; width: 90%; }
         .section-title { font-size: 26px; color: #005500; margin-bottom: 12px; }
 
@@ -126,7 +131,6 @@
             isFetchingAlerts = true;
             lockTime = nowTime;
 
-            // צינור התקשורת הפרטי בשרתי גוגל
             var targetUrl = "https://script.google.com/macros/s/AKfycbz_2w4SkUX2qxP27pVCX4g-tsZbtttKb5X95TGG4FBRcFihafSjQBDDkYQKfXOPraXQjA/exec";
             var fetchUrl = targetUrl + "?v=" + lockTime;
             
@@ -225,6 +229,7 @@
 
                     var isAlertInHolon = false;
                     var activeAlertTitle = "";
+                    var alertAgeMinutes = -1;
                     
                     for (var i = 0; i < Math.min(alerts.length, 50); i++) {
                         var rowStr2 = JSON.stringify(alerts[i] || {});
@@ -237,6 +242,8 @@
                                 
                                 if (diffMinutes <= 10 && diffMinutes >= 0) {
                                     isAlertInHolon = true;
+                                    alertAgeMinutes = diffMinutes;
+                                    
                                     if (rowStr2.indexOf("בדקות הקרובות צפויות להתקבל התרעות") !== -1) {
                                         activeAlertTitle = "צפי להתרעות";
                                     } else if (rowStr2.indexOf("ירי רקטות וטילים") !== -1) {
@@ -252,15 +259,21 @@
 
                     var statusDiv = document.getElementById("holon-status");
                     if (isAlertInHolon) {
-                        if (activeAlertTitle.indexOf("צפי להתרעות") !== -1) {
-                            document.body.className = "warning";
+                        var isExpected = activeAlertTitle.indexOf("צפי להתרעות") !== -1;
+                        var isMissiles = activeAlertTitle.indexOf("טילים") !== -1;
+                        
+                        if (isExpected) {
                             statusDiv.innerHTML = "התרעות צפויות בדקות הקרובות";
-                        } else if (activeAlertTitle.indexOf("טילים") !== -1) {
-                            document.body.className = "emergency";
+                        } else if (isMissiles) {
                             statusDiv.innerHTML = "ירי רקטות וטילים!";
                         } else {
-                            document.body.className = "emergency";
                             statusDiv.innerHTML = activeAlertTitle;
+                        }
+
+                        if (alertAgeMinutes <= 2) {
+                            document.body.className = isExpected ? "warning" : "emergency";
+                        } else {
+                            document.body.className = "shrapnel-alert";
                         }
                     } else {
                         document.body.className = "";
