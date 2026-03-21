@@ -186,6 +186,8 @@
                     var latestEventTime = 0;
                     var latestEventText = "";
                     var latestEventTimeStr = "";
+                    var alertsToday = 0; 
+                    var startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).getTime();
 
                     for (var j = 0; j < alerts.length; j++) {
                         var rowString = JSON.stringify(alerts[j] || {});
@@ -194,6 +196,10 @@
                             
                             if (dObj) {
                                 var eventTs = dObj.getTime();
+                                
+                                if (eventTs >= startOfDay) {
+                                    alertsToday++;
+                                }
                                 
                                 if (eventTs > latestEventTime) {
                                     latestEventTime = eventTs;
@@ -219,12 +225,12 @@
 
                     if (latestEventText !== "") {
                         if (latestEventText === "התרעה") {
-                            debugDiv.innerHTML = "אזעקה אחרונה: " + latestEventTimeStr + " | עודכן: " + now.toLocaleTimeString("he-IL");
+                            debugDiv.innerHTML = "אזעקה אחרונה: " + latestEventTimeStr + " | אזעקות ביממה: " + alertsToday + " | עודכן: " + now.toLocaleTimeString("he-IL");
                         } else {
-                            debugDiv.innerHTML = "אזעקה אחרונה: " + latestEventText + " (" + latestEventTimeStr + ") | עודכן: " + now.toLocaleTimeString("he-IL");
+                            debugDiv.innerHTML = "אזעקה אחרונה: " + latestEventText + " (" + latestEventTimeStr + ") | אזעקות ביממה: " + alertsToday + " | עודכן: " + now.toLocaleTimeString("he-IL");
                         }
                     } else {
-                        debugDiv.innerHTML = "שקט בחולון (אין נתוני עבר) | עודכן: " + now.toLocaleTimeString("he-IL");
+                        debugDiv.innerHTML = "שקט בחולון (אין נתוני עבר) | אזעקות ביממה: " + alertsToday + " | עודכן: " + now.toLocaleTimeString("he-IL");
                     }
 
                     var isAlertInHolon = false;
