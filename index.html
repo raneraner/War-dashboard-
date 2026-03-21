@@ -109,7 +109,12 @@
                     currentCode === 80 || currentCode === 81 || currentCode === 82) {
                     rText = "גשום כרגע!";
                 } else if (rainToday > 0) {
-                    rText = "גשם צפוי הלילה";
+                    var currentHour = new Date().getHours();
+                    if (currentHour < 18) {
+                        rText = "גשם צפוי בהמשך היום";
+                    } else {
+                        rText = "גשם צפוי הלילה";
+                    }
                 } else if (rainTomorrow > 0) {
                     rText = "גשם צפוי מחר";
                 }
